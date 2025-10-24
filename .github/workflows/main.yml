@@ -1,17 +1,17 @@
-name: Run Tests
+name: Python CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9, 3.10, 3.11]
+        python-version: ["3.9", "3.10", "3.11"]  # Versões suportadas
 
     steps:
     - uses: actions/checkout@v4
@@ -28,11 +28,4 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest tests/ -v --cov=src --cov-report=xml
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
+        pytest tests/ -v
