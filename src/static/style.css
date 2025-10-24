@@ -1,0 +1,32 @@
+/* Define a fonte padrão para o corpo da página */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f9; /* Cor de fundo suave, alternativa ao Tailwind bg-gray-100 */
+}
+
+/* Estiliza o contêiner principal */
+.container {
+    max-width: 800px; /* Limita a largura máxima para não ficar muito largo em telas grandes */
+}
+
+/* Estiliza cada item da lista de tarefas */
+.task-item {
+    transition: all 0.3s ease; /* Adiciona uma transição suave para efeitos de hover */
+    border-left: 4px solid #3b82f6; /* Borda azul à esquerda para destaque */
+}
+
+/* Efeito de hover nos itens da lista */
+.task-item:hover {
+    transform: scale(1.02); /* Aumenta levemente o tamanho */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Adiciona uma sombra suave */
+}
+
+/* Estiliza o botão de adicionar tarefa */
+button {
+    transition: background-color 0.2s ease; /* Transição suave para mudança de cor */
+}
+
+/* Estiliza os links de "Concluir" e "Excluir" */
+a {
+    transition: color 0.2s ease; /* Transição suave para mudança de cor ao passar o mouse */
+}
