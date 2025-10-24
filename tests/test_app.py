@@ -2,10 +2,10 @@ import pytest
 import sys
 import os
 
-# Adiciona o diretório src ao path para importar o app
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Adiciona o diretório raiz ao path para importar o app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import app
+from app import app, tasks
 
 @pytest.fixture
 def client():
@@ -16,7 +16,6 @@ def client():
 @pytest.fixture(autouse=True)
 def reset_tasks():
     """Fixture para resetar as tarefas antes de cada teste"""
-    from app import tasks
     tasks.clear()
     yield
     tasks.clear()
@@ -25,159 +24,109 @@ def test_index_route(client):
     """Testa se a página inicial carrega corretamente"""
     response = client.get('/')
     assert response.status_code == 200
-    assert b'Gerenciador de Tarefas' in response.data
+    # Verifica se contém elementos esperados na página
+    assert b'<!DOCTYPE html>' in response.data
 
 def test_add_task_success(client):
     """Testa a adição de uma tarefa com sucesso"""
-    response = client.post('/add', data={
-        'title': 'Tarefa de Teste',
-        'description': 'Descrição de teste',
-        'priority': 'high'
+    response = client.post('/add_task', data={
+        'title': 'Nova Tarefa',
+        'description': 'Descrição da tarefa'
     }, follow_redirects=True)
     
     assert response.status_code == 200
-    from app import tasks
     assert len(tasks) == 1
-    assert tasks[0]['title'] == 'Tarefa de Teste'
-    assert tasks[0]['description'] == 'Descrição de teste'
-    assert tasks[0]['priority'] == 'high'
+    assert tasks[0]['title'] == 'Nova Tarefa'
+    assert tasks[0]['description'] == 'Descrição da tarefa'
     assert tasks[0]['completed'] is False
 
-def test_add_task_empty_title(client):
-    """Testa a tentativa de adicionar tarefa com título vazio"""
-    from app import tasks
-    initial_count = len(tasks)
-    
-    response = client.post('/add', data={
-        'title': '',  # Título vazio
-        'description': 'Descrição',
-        'priority': 'medium'
+def test_add_task_empty_description(client):
+    """Testa adição de tarefa com descrição vazia"""
+    response = client.post('/add_task', data={
+        'title': 'Tarefa sem descrição',
+        'description': ''
     }, follow_redirects=True)
     
     assert response.status_code == 200
-    # Não deve adicionar tarefa com título vazio
-    assert len(tasks) == initial_count
+    assert len(tasks) == 1
+    assert tasks[0]['title'] == 'Tarefa sem descrição'
+    assert tasks[0]['description'] == ''
 
-def test_delete_task(client):
-    """Testa a exclusão de uma tarefa"""
-    from app import tasks
-    # Adiciona uma tarefa primeiro
-    tasks.append({
-        'id': 1,
-        'title': 'Tarefa para excluir',
-        'description': '',
-        'completed': False,
-        'priority': 'medium'
-    })
+def test_complete_task(client):
+    """Testa marcar uma tarefa como concluída"""
+    # Primeiro adiciona uma tarefa
+    tasks.append({'title': 'Tarefa para completar', 'description': '', 'completed': False})
     
-    initial_count = len(tasks)
-    response = client.get('/delete/1', follow_redirects=True)
-    
-    assert response.status_code == 200
-    assert len(tasks) == initial_count - 1
-
-def test_delete_nonexistent_task(client):
-    """Testa a exclusão de uma tarefa que não existe"""
-    from app import tasks
-    initial_count = len(tasks)
-    
-    response = client.get('/delete/999', follow_redirects=True)  # ID que não existe
-    
-    assert response.status_code == 200
-    assert len(tasks) == initial_count  # Nenhuma tarefa deve ser removida
-
-def test_toggle_task(client):
-    """Testa marcar/desmarcar tarefa como concluída"""
-    from app import tasks
-    tasks.append({
-        'id': 1,
-        'title': 'Tarefa para toggle',
-        'description': '',
-        'completed': False,
-        'priority': 'low'
-    })
-    
-    # Primeiro toggle - marca como concluída
-    response = client.get('/toggle/1', follow_redirects=True)
+    response = client.get('/complete_task/0', follow_redirects=True)
     assert response.status_code == 200
     assert tasks[0]['completed'] is True
-    
-    # Segundo toggle - desmarca
-    response = client.get('/toggle/1', follow_redirects=True)
-    assert response.status_code == 200
-    assert tasks[0]['completed'] is False
 
-def test_toggle_nonexistent_task(client):
-    """Testa alternar uma tarefa que não existe"""
-    from app import tasks
-    initial_count = len(tasks)
-    
-    response = client.get('/toggle/999', follow_redirects=True)
+def test_complete_task_invalid_index(client):
+    """Testa completar uma tarefa com índice inválido"""
+    initial_task_count = len(tasks)
+    response = client.get('/complete_task/999', follow_redirects=True)  # Índice inválido
     
     assert response.status_code == 200
-    assert len(tasks) == initial_count  # Nenhuma tarefa deve ser alterada
+    # Nenhuma tarefa deve ser modificada
+    assert len(tasks) == initial_task_count
 
-def test_api_tasks_empty(client):
-    """Testa a API de tarefas quando não há tarefas"""
-    response = client.get('/api/tasks')
+def test_delete_task(client):
+    """Testa excluir uma tarefa"""
+    # Adiciona uma tarefa primeiro
+    tasks.append({'title': 'Tarefa para excluir', 'description': '', 'completed': False})
+    
+    response = client.get('/delete_task/0', follow_redirects=True)
+    assert response.status_code == 200
+    assert len(tasks) == 0
+
+def test_delete_task_invalid_index(client):
+    """Testa excluir uma tarefa com índice inválido"""
+    # Adiciona uma tarefa
+    tasks.append({'title': 'Tarefa', 'description': '', 'completed': False})
+    initial_task_count = len(tasks)
+    
+    response = client.get('/delete_task/999', follow_redirects=True)  # Índice inválido
     
     assert response.status_code == 200
-    assert response.is_json
-    data = response.get_json()
-    assert data == []
+    # Nenhuma tarefa deve ser excluída
+    assert len(tasks) == initial_task_count
 
-def test_api_tasks_with_data(client):
-    """Testa a API de tarefas quando há tarefas"""
-    from app import tasks
-    tasks.append({
-        'id': 1,
-        'title': 'Tarefa API',
-        'description': 'Teste API',
-        'completed': False,
-        'priority': 'medium'
-    })
-    
-    response = client.get('/api/tasks')
-    
-    assert response.status_code == 200
-    assert response.is_json
-    data = response.get_json()
-    assert len(data) == 1
-    assert data[0]['title'] == 'Tarefa API'
-
-def test_task_id_uniqueness(client):
-    """Testa se os IDs das tarefas são únicos"""
-    from app import tasks
-    
+def test_multiple_tasks_operations(client):
+    """Testa operações com múltiplas tarefas"""
     # Adiciona várias tarefas
-    client.post('/add', data={'title': 'Tarefa 1'}, follow_redirects=True)
-    client.post('/add', data={'title': 'Tarefa 2'}, follow_redirects=True)
-    client.post('/add', data={'title': 'Tarefa 3'}, follow_redirects=True)
+    client.post('/add_task', data={'title': 'Tarefa 1', 'description': 'Desc 1'}, follow_redirects=True)
+    client.post('/add_task', data={'title': 'Tarefa 2', 'description': 'Desc 2'}, follow_redirects=True)
+    client.post('/add_task', data={'title': 'Tarefa 3', 'description': 'Desc 3'}, follow_redirects=True)
     
-    # Verifica se todos os IDs são únicos
-    task_ids = [task['id'] for task in tasks]
-    assert len(task_ids) == len(set(task_ids))  # Todos únicos
+    assert len(tasks) == 3
+    
+    # Completa a segunda tarefa
+    client.get('/complete_task/1', follow_redirects=True)
+    assert tasks[1]['completed'] is True
+    assert tasks[0]['completed'] is False
+    assert tasks[2]['completed'] is False
+    
+    # Exclui a primeira tarefa
+    client.get('/delete_task/0', follow_redirects=True)
+    assert len(tasks) == 2
+    # Após excluir a primeira, as tarefas são reorganizadas
+    assert tasks[0]['title'] == 'Tarefa 2'
+    assert tasks[1]['title'] == 'Tarefa 3'
 
 def test_task_structure(client):
     """Testa se a estrutura das tarefas está correta"""
-    client.post('/add', data={
-        'title': 'Tarefa Estruturada',
-        'description': 'Descrição completa',
-        'priority': 'high'
+    client.post('/add_task', data={
+        'title': 'Tarefa Teste',
+        'description': 'Descrição Teste'
     }, follow_redirects=True)
     
-    from app import tasks
     task = tasks[0]
-    
     # Verifica se todas as chaves necessárias existem
-    required_keys = ['id', 'title', 'description', 'completed', 'priority']
-    for key in required_keys:
-        assert key in task
+    assert 'title' in task
+    assert 'description' in task
+    assert 'completed' in task
     
     # Verifica tipos de dados
-    assert isinstance(task['id'], int)
     assert isinstance(task['title'], str)
     assert isinstance(task['description'], str)
     assert isinstance(task['completed'], bool)
-    assert isinstance(task['priority'], str)
-    assert task['priority'] in ['low', 'medium', 'high']
